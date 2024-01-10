@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <title>Tour-rific Admin Player Accounts</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="shortcut icon"
+      type="image/png"
+      href="assets/images/icon/favicon.ico"
+    />
+    <link rel="stylesheet" href="assets/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="assets/css/font-awesome.min.css" />
+    <link rel="stylesheet" href="assets/css/themify-icons.css" />
+    <link rel="stylesheet" href="assets/css/metisMenu.css" />
+    <link rel="stylesheet" href="assets/css/owl.carousel.min.css" />
+    <link rel="stylesheet" href="assets/css/slicknav.min.css" />
+    <!-- amchart css -->
+    <link
+      rel="stylesheet"
+      href="https://www.amcharts.com/lib/3/plugins/export/export.css"
+      type="text/css"
+      media="all"
+    />
+    <!-- others css -->
+    <link rel="stylesheet" href="assets/css/typography.css" />
+    <link rel="stylesheet" href="assets/css/default-css.css" />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+    <link rel="stylesheet" href="assets/css/responsive.css" />
+    <!-- modernizr css -->
+    <script src="assets/js/vendor/modernizr-2.8.3.min.js"></script>
+  </head>
+
+  <body>
+    <script
+      type="module"
+      src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js"
+    ></script>
+    <script type="module">
+      import { FIREBASE_CONFIG } from "./config.js";
+      //for firebase app
+      import {
+        //determine which services you want to use
+        initializeApp,
+      } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-app.js";
+      //for realtime database
+      import {
+        //determine which services you want to use
+        getDatabase,
+        ref,
+        set,
+        get,
+        onValue,
+        push,
+        child,
+        update,
+        remove,
+      } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-database.js";
+      //for auth
+      import {
+        //determine which services you want to use
+        getAuth,
+        createUserWithEmailAndPassword,
+        signInWithEmailAndPassword,
+        onAuthStateChanged,
+        signOut,
+      } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-auth.js";
+
+      const app = initializeApp(FIREBASE_CONFIG);
+      const db = getDatabase();
+      const auth = getAuth();
+
+      const UID = localStorage.getItem("admin");
+
+      const players = ref(db, "players");
+
+      let tempPuzzle = "";
+
+      getAccount();
+      getPlayers();
+      clearSearch();
+
+      let btnLogOut = document.getElementById("logout");
+      btnLogOut.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        console.log("signing out");
+        signOut(auth);
+        //Remove the admin from the local storage
+        localStorage.removeItem("admin");
+        window.location.href = "index.html";
+      });
+
+      function clearSearch() {
+        document.getElementById("myInput").value = "";
+      }
+
+      async function getAccount() {
+        await get(ref(db, "admin/" + UID)).then((snapshot) => {
+          if (snapshot.exists()) {
+            try {
+              let content = "";
+              snapshot.forEach((childSnapshot) => {
+                if (childSnapshot.key == "username") {
+                  $("#username").text(childSnapshot.val());
+                }
+              });
+            } catch (error) {
+              console.log(error);
+            }
+          } else {
+            console.log("snapshot does not exist");
+          }
+        });
+      }
+
+      async function getPlayers() {
+        console.log("getting players");
+        await get(players).then((snapshot) => {
+          if (snapshot.exists()) {
+            try {
+              let content = "";
+              //setup our temp arrays
+              let playerDataTable = document.getElementById("player-data");
+              playerDataTable.innerHTML = "";
+
+              let playerData = "";
+              snapshot.forEach((childSnapshot) => {
+                (async () => {
+                  await getPuzzle(childSnapshot.key);
+                  //Save childSnapshot info under player
+                  let player = childSnapshot.val();
+                  // Create row element
+                  let row = document.createElement("tr");
+
+                  // Create cells
+                  let uid = document.createElement("td");
+                  let email = document.createElement("td");
+                  let password = document.createElement("td");
+                  let username = document.createElement("td");
+                  let coins = document.createElement("td");
+                  let puzzle = document.createElement("td");
+                  let time = document.createElement("td");
+
+                  // Insert data to cells
+                  username.innerText = player.username;
+                  email.innerText = player.email;
+                  password.innerText = player.password;
+                  uid.innerText = childSnapshot.key;
+                  coins.innerText = player.coins;
+                  puzzle.innerText = tempPuzzle;
+                  time.innerText = player.totalTime;
+
+                  // Append cells to row
+                  row.appendChild(uid);
+                  row.appendChild(email);
+                  row.appendChild(password);
+                  row.appendChild(username);
+                  row.appendChild(coins);
+                  row.appendChild(puzzle);
+                  row.appendChild(time);
+
+                  // Append row to table body
+                  playerDataTable.appendChild(row);
+                  tempPuzzle = "";
+                })();
+              });
+            } catch (error) {
+              console.log(error);
+            }
+          } else {
+            console.log("snapshot does not exist");
+          }
+        });
+      }
+      async function getPuzzle(uid) {
+        console.log("getting puzzle for: " + uid);
+        await get(ref(db, "puzzlePieces/" + uid)).then((snapshot) => {
+          if (snapshot.exists()) {
+            try {
+              let content = "";
+              let temp = "";
+              snapshot.forEach((childSnapshot) => {
+                if (childSnapshot.val() == true) {
+                  temp += childSnapshot.key.substr(4, 1);
+                } else {
+                  temp += "0";
+                }
+              });
+              console.log(temp);
+              tempPuzzle = temp;
+              return tempPuzzle;
+            } catch (error) {
+              console.log(error);
+            }
+          } else {
+            console.log("snapshot does not exist");
+          }
+        });
+      }
+    </script>
+    <!-- preloader area start -->
+    <div id="preloader">
+      <div class="loader"></div>
+    </div>
+    <!-- preloader area end -->
+    <!-- page container area start -->
+    <div class="page-container">
+      <!-- sidebar menu area start -->
+      <div class="sidebar-menu">
+        <div class="sidebar-header">
+          <div class="logo">
+            <a href="adminStatistics.html"
+              ><img src="assets/images/icon/logo.png" alt="logo"
+            /></a>
+          </div>
+        </div>
+        <div class="main-menu">
+          <div class="menu-inner">
+            <nav>
+              <ul class="metismenu" id="menu">
+                <li>
+                  <a href="javascript:void(0)" aria-expanded="true"
+                    ><i class="ti-bar-chart"></i><span>Dashboard</span></a
+                  >
+                  <ul class="collapse">
+                    <li>
+                      <a href="adminStatistics.html">Statistics</a>
+                    </li>
+                  </ul>
+                </li>
+                <li class="active">
+                  <a href="javascript:void(0)" aria-expanded="true"
+                    ><i class="ti-user"></i><span>Players</span></a
+                  >
+                  <ul class="collapse">
+                    <li>
+                      <a href="adminAnnounce.html">Announcements</a>
+                    </li>
+                    <li class="active">
+                      <a href="adminPlayers.html">Player Accounts</a>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </div>
+      <!-- sidebar menu area end -->
+      <!-- main content area start -->
+      <div class="main-content">
+        <!-- header area start -->
+        <div class="header-area">
+          <div class="row align-items-center">
+            <!-- nav and search button -->
+            <div class="col-md-6 col-sm-8 clearfix">
+              <div class="nav-btn pull-left">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+            <!-- profile info & task notification -->
+            <div class="col-md-6 col-sm-4 clearfix">
+              <ul class="notification-area pull-right">
+                <li id="full-view"><i class="ti-fullscreen"></i></li>
+                <li id="full-view-exit"><i class="ti-zoom-out"></i></li>
+                <li class="dropdown">
+                  <i class="ti-bell dropdown-toggle" data-toggle="dropdown">
+                    <!-- <span>2</span> -->
+                  </i>
+                  <div class="dropdown-menu bell-notify-box notify-box">
+                    <span class="notify-title"
+                      >You have 0 new notifications
+                    </span>
+                    <div class="nofity-list">
+                      <a href="#" class="notify-item">
+                        <div class="notify-thumb">
+                          <i class="ti-comments-smiley btn-info"></i>
+                        </div>
+                        <div class="notify-text">
+                          <p>You made an Announcement</p>
+                          <span>09:00</span>
+                        </div>
+                      </a>
+                      <a href="#" class="notify-item">
+                        <div class="notify-thumb">
+                          <i class="ti-key btn-danger"></i>
+                        </div>
+                        <div class="notify-text">
+                          <p>You Changed your Password</p>
+                          <span>30 Days ago</span>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                </li>
+                <script type="module">
+                  $("#notif-num").remove();
+                  $(".dropdown-menu notify-box nt-enveloper-box").class =
+                    "show";
+                </script>
+                <li class="dropdown" id="message-notifs">
+                  <i
+                    class="fa fa-envelope-o dropdown-toggle"
+                    data-toggle="dropdown"
+                    ><span id="notif-num"></span
+                  ></i>
+                  <div class="dropdown-menu notify-box nt-enveloper-box">
+                    <span class="notify-title" id="notif-text"> </span>
+                    <div class="nofity-list">
+                      <a href="#" class="notify-item">
+                        <div class="notify-thumb">
+                          <img
+                            src="assets/images/author/author-img1.png"
+                            alt="image"
+                          />
+                        </div>
+                        <div class="notify-text">
+                          <p>[Admin] Spaghetti</p>
+                          <span class="msg"
+                            >Hello, I am waiting for you...</span
+                          >
+                          <span>Yesterday</span>
+                        </div>
+                      </a>
+                      <a href="#" class="notify-item">
+                        <div class="notify-thumb">
+                          <img
+                            src="assets/images/author/author-img2.png"
+                            alt="image"
+                          />
+                        </div>
+                        <div class="notify-text">
+                          <p>[Admin] Meatballs</p>
+                          <span class="msg">When you are free...</span>
+                          <span>30/12/23</span>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                </li>
+                <li class="settings-btn">
+                  <i class="ti-settings"></i>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <!-- header area end -->
+        <!-- offset area start -->
+        <div class="offset-area">
+          <div class="offset-close"><i class="ti-close"></i></div>
+          <ul class="nav offset-menu-tab">
+            <li>
+              <a class="active" data-toggle="tab" href="#activity">Activity</a>
+            </li>
+            <li><a data-toggle="tab" href="#settings">Settings</a></li>
+          </ul>
+          <div class="offset-content tab-content">
+            <div id="activity" class="tab-pane fade in show active">
+              <div class="recent-activity">
+                <div class="timeline-task">
+                  <div class="icon bg2">
+                    <i class="fa fa-check"></i>
+                  </div>
+                  <div class="tm-title">
+                    <h4>Solved</h4>
+                    <span class="time"
+                      ><i class="ti-time"></i>11 Minutes Ago</span
+                    >
+                  </div>
+                  <p>
+                    [Admin] Mushroom completed [User] Potato , [UID]
+                    A8vM47IfRnfzjXhho97rW0kZhUr2 's request.
+                  </p>
+                </div>
+                <div class="timeline-task">
+                  <div class="icon bg3">
+                    <i class="ti-pin2"></i>
+                  </div>
+                  <div class="tm-title">
+                    <h4>Task Opened</h4>
+                    <span class="time"
+                      ><i class="ti-time"></i>36 Minutes Ago</span
+                    >
+                  </div>
+                  <p>
+                    Task has been opened for [User] Potato , [UID]
+                    A8vM47IfRnfzjXhho97rW0kZhUr2 by [Admin] Mushroom.
+                  </p>
+                </div>
+                <div class="timeline-task">
+                  <div class="icon bg1">
+                    <i class="fa fa-envelope"></i>
+                  </div>
+                  <div class="tm-title">
+                    <h4>Potato sent an email</h4>
+                    <span class="time"
+                      ><i class="ti-time"></i>38 Minutes Ago</span
+                    >
+                  </div>
+                  <p>Dear admin, I have problems logging into my account...</p>
+                </div>
+                <div class="timeline-task">
+                  <div class="icon bg2">
+                    <i class="ti-server"></i>
+                  </div>
+                  <div class="tm-title">
+                    <h4>Server Open</h4>
+                    <span class="time"><i class="ti-time"></i>10:35</span>
+                  </div>
+                  <p>Maintenance has ended and the server has been opened.</p>
+                </div>
+                <div class="timeline-task">
+                  <div class="icon bg3">
+                    <i class="ti-announcement"></i>
+                  </div>
+                  <div class="tm-title">
+                    <h4>Maintenance Extended</h4>
+                    <span class="time"><i class="ti-time"></i>10:00</span>
+                  </div>
+                  <p>The server maintenance will be extended by 30 Minutes.</p>
+                </div>
+                <div class="timeline-task">
+                  <div class="icon bg3">
+                    <i class="ti-server"></i>
+                  </div>
+                  <div class="tm-title">
+                    <h4>Server Closed</h4>
+                    <span class="time"><i class="ti-time"></i>09:15</span>
+                  </div>
+                  <p>The server has been closed for maintenance.</p>
+                </div>
+              </div>
+            </div>
+            <div id="settings" class="tab-pane fade">
+              <div class="offset-settings">
+                <h4>General Settings</h4>
+                <div class="settings-list">
+                  <div class="s-settings">
+                    <div class="s-sw-title">
+                      <h5>Notifications</h5>
+                      <div class="s-swtich">
+                        <input type="checkbox" id="switch1" />
+                        <label for="switch1">Toggle</label>
+                      </div>
+                    </div>
+                    <p>Toggle 'On' to get all notifications.</p>
+                  </div>
+                  <div class="s-settings">
+                    <div class="s-sw-title">
+                      <h5>Clear old activity</h5>
+                      <div class="s-swtich">
+                        <input type="checkbox" id="switch2" checked />
+                        <label for="switch2">Toggle</label>
+                      </div>
+                    </div>
+                    <p>
+                      Toggle 'On' to delete activity after the last 24 hours.
+                    </p>
+                  </div>
+                  <div class="s-settings">
+                    <div class="s-sw-title">
+                      <h5>Link email</h5>
+                      <div class="s-swtich">
+                        <input type="checkbox" id="switch3" checked />
+                        <label for="switch3">Toggle</label>
+                      </div>
+                    </div>
+                    <p>Toggle 'On' to show email notifications.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- offset area end -->
+        <!-- page title area start -->
+        <div class="page-title-area">
+          <div class="row align-items-center">
+            <div class="col-sm-6">
+              <div class="breadcrumbs-area clearfix">
+                <h4 class="page-title pull-left">Tour-rific</h4>
+                <ul class="breadcrumbs pull-left">
+                  <li><a>Players</a></li>
+                  <li><span>Player Accounts</span></li>
+                </ul>
+              </div>
+            </div>
+            <div class="col-sm-6 clearfix">
+              <div class="user-profile pull-right">
+                <img
+                  class="avatar user-thumb"
+                  src="assets/images/author/avatar.png"
+                  alt="avatar"
+                />
+                <h4
+                  class="user-name dropdown-toggle"
+                  data-toggle="dropdown"
+                  id="username"
+                >
+                  - <i class="fa fa-angle-down"></i>
+                </h4>
+                <div class="dropdown-menu">
+                  <!-- <a class="dropdown-item" href="#">Profile</a> -->
+                  <a class="dropdown-item" href="#">Message</a>
+                  <a class="dropdown-item" id="logout" href="index.html"
+                    >Log Out</a
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- page title area end -->
+        <script>
+          function filterTable() {
+            // Declare variables
+            var input, filter, table, tr, td, i, txtValue;
+            input = document.getElementById("myInput");
+            filter = input.value.toUpperCase();
+            table = document.getElementById("player-data");
+            tr = table.getElementsByTagName("tr");
+
+            // Loop through all table rows, and hide those who don't match the search query
+            for (i = 0; i < tr.length; i++) {
+              td = tr[i].getElementsByTagName("td")[0];
+              if (td) {
+                txtValue = td.textContent || td.innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                  tr[i].style.display = "";
+                } else {
+                  tr[i].style.display = "none";
+                }
+              }
+            }
+          }
+        </script>
+        <div class="main-content-inner">
+          <!-- player info area start -->
+          <div class="card mt-5">
+            <div class="card-body">
+              <div class="row-mr-5">
+                <div class="search-box pull-right">
+                  <form onsubmit="event.preventDefault()">
+                    <input
+                      type="text"
+                      name="search"
+                      id="myInput"
+                      onkeyup="filterTable()"
+                      placeholder="Search by UID here..."
+                      required
+                    />
+                    <i class="ti-search"></i>
+                  </form>
+                </div>
+                <h4 class="header-title mb-5">Player Accounts</h4>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-striped">
+                  <thead>
+                    <tr class="heading-td">
+                      <th>UID</th>
+                      <th>Email</th>
+                      <th>Password</th>
+                      <th>Username</th>
+                      <th>Coins</th>
+                      <th>Puzzle Pieces</th>
+                      <th>Total Time Taken</th>
+                    </tr>
+                  </thead>
+                  <tbody id="player-data"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <!-- player info area end -->
+        </div>
+      </div>
+      <!-- main content area end -->
+      <!-- footer area start-->
+      <footer>
+        <div class="footer-area">
+          <p>
+            © Copyright 2018. All right reserved. Template by
+            <a href="https://colorlib.com/wp/">Colorlib</a>.
+          </p>
+        </div>
+      </footer>
+      <!-- footer area end-->
+    </div>
+    <!-- page container area end -->
+    <!-- jquery latest version -->
+    <script src="assets/js/vendor/jquery-2.2.4.min.js"></script>
+    <!-- bootstrap 4 js -->
+    <script src="assets/js/popper.min.js"></script>
+    <script src="assets/js/bootstrap.min.js"></script>
+    <script src="assets/js/owl.carousel.min.js"></script>
+    <script src="assets/js/metisMenu.min.js"></script>
+    <script src="assets/js/jquery.slimscroll.min.js"></script>
+    <script src="assets/js/jquery.slicknav.min.js"></script>
+
+    <!-- start chart js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.min.js"></script>
+    <!-- start highcharts js -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+    <!-- start zingchart js -->
+    <script src="https://cdn.zingchart.com/zingchart.min.js"></script>
+    <script>
+      zingchart.MODULESDIR = "https://cdn.zingchart.com/modules/";
+      ZC.LICENSE = [
+        "569d52cefae586f634c54f86dc99e6a9",
+        "ee6b7db5b51705a13dc2339db3edaf6d",
+      ];
+    </script>
+    <!-- start amcharts -->
+    <script src="https://www.amcharts.com/lib/3/amcharts.js"></script>
+    <script src="https://www.amcharts.com/lib/3/ammap.js"></script>
+    <script src="https://www.amcharts.com/lib/3/maps/js/worldLow.js"></script>
+    <script src="https://www.amcharts.com/lib/3/serial.js"></script>
+    <script src="https://www.amcharts.com/lib/3/plugins/export/export.min.js"></script>
+    <script src="https://www.amcharts.com/lib/3/themes/light.js"></script>
+    <!-- others plugins -->
+    <script src="assets/js/plugins.js"></script>
+    <script src="assets/js/scripts.js"></script>
+  </body>
+</html>
